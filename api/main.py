@@ -179,24 +179,28 @@ def rag_query(req: schemas.RAGRequest):
         try:
             rows = dbmod.run_query(sql_text)
 
-            # If SELECT returned rows, normalize weird column names
-            if isinstance(rows, list) and rows:
-                row = rows[0]
+            # rows is a list of dicts (SELECT results)
+            if isinstance(rows, list):
 
-                # Normalize column named like "MAX(price)" → "price"
-                new_row = {}
-                for k, v in row.items():
-                    clean_key = k.lower()
-                    if "(" in clean_key and ")" in clean_key:
-                        clean_key = clean_key.replace("max(", "").replace("avg(", "").replace("min(", "").replace("sum(", "").replace(")", "")
-                    new_row[clean_key] = v
+                # 1) If more than 1 row → return the whole thing (correct for list queries)
+                if len(rows) > 1:
+                    return {"answer": rows, "sources": [sql_text]}
 
-                return {
-                    "answer": new_row,
-                    "sources": [sql_text]
-                }
+                # 2) If exactly 1 row → apply normalization (for aggregations)
+                if len(rows) == 1:
+                    row = rows[0]
+                    normalized = {}
 
-            return {"answer": rows, "sources": [sql_text]}
+                    for k, v in row.items():
+                        clean = k.lower()
+                        if "(" in clean and ")" in clean:
+                            clean = clean.replace("max(", "").replace("avg(", "").replace("min(", "").replace("sum(", "").replace(")", "")
+                        normalized[clean] = v
+
+                    return {"answer": normalized, "sources": [sql_text]}
+
+                # 3) No rows
+                return {"answer": [], "sources": [sql_text]}
 
         except Exception as e:
             return {
