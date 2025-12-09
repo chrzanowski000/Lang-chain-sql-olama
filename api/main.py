@@ -106,3 +106,73 @@ def ingest_endpoint():
         return {"status":"ingested"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+### Adding elements to data
+@app.post("/create_customer")
+def create_customer(cust: schemas.CustomerCreate):
+    sql = """
+    INSERT INTO customers (name, email, country)
+    VALUES (?, ?, ?)
+    """
+    params = [cust.name, cust.email, cust.country]
+    try:
+        result = dbmod.run_exec(sql, params)
+        return {
+            "status": "success",
+            "inserted": cust,
+            "rows_affected": result["rows_affected"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@app.post("/create_product")
+def create_product(prod: schemas.ProductCreate):
+    sql = """
+    INSERT INTO products (name, price)
+    VALUES (?, ?)
+    """
+    params = [prod.name, prod.price]
+    try:
+        result = dbmod.run_exec(sql, params)
+        return {
+            "status": "success",
+            "inserted": prod,
+            "rows_affected": result["rows_affected"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/create_order")
+def create_order(order: schemas.OrderCreate):
+    sql = """
+    INSERT INTO orders (customer_id, order_date)
+    VALUES (?, ?)
+    """
+    params = [order.customer_id, order.order_date]
+    try:
+        result = dbmod.run_exec(sql, params)
+        return {
+            "status": "success",
+            "inserted": order,
+            "rows_affected": result["rows_affected"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@app.post("/create_order_item")
+def create_order_item(item: schemas.OrderItemCreate):
+    sql = """
+    INSERT INTO order_items (order_id, product_id, quantity, unit_price)
+    VALUES (?, ?, ?, ?)
+    """
+    params = [item.order_id, item.product_id, item.quantity, item.unit_price]
+    try:
+        result = dbmod.run_exec(sql, params)
+        return {
+            "status": "success",
+            "inserted": item,
+            "rows_affected": result["rows_affected"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
