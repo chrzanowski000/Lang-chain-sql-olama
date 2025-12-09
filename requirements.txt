@@ -1,0 +1,8 @@
+langchain
+langchain-community
+langchain-ollama
+langchain-text-splitters
+chromadb
+duckdb
+python-dotenv
+tqdm
