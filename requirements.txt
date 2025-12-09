@@ -6,3 +6,6 @@ chromadb
 duckdb
 python-dotenv
 tqdm
+fastapi
+uvicorn[standard]
+python-dotenv
