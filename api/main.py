@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException
 from dotenv import load_dotenv
 from typing import List
 
-load_dotenv()
+load_dotenv() #here .env is loaded
 from api import db as dbmod
 from api import schemas
 
@@ -66,36 +66,140 @@ def run_sql(req: schemas.SQLRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+# @app.post("/rag", response_model=schemas.RAGResponse)
+# def rag_query(req: schemas.RAGRequest):
+#     llm, emb = get_llm_and_emb()
+#     col = get_collection()
+
+#     q_emb = emb.embed_query(req.query)
+#     # ask chroma for docs + distances
+#     res = col.query(query_embeddings=[q_emb], n_results=req.k, include=["documents","distances","metadatas"])
+#     # normalize shapes: most servers return nested lists
+#     docs = res.get("documents", [[]])[0]
+#     dists = res.get("distances", [[]])[0] if "distances" in res else None
+
+#     if not docs:
+#         raise HTTPException(status_code=404, detail="No documents found in vector DB. Run ingestion.")
+
+#     # assemble prompt
+#     context = "\n\n---\n\n".join(docs)
+#     prompt = f"""You are an assistant that answers questions about the SQL schema.
+# Use ONLY the documentation below. If answer not present, say "I don't know".
+
+# Documentation:
+# {context}
+
+# Question: {req.query}
+
+# Answer:"""
+#     resp = llm.invoke(prompt)
+#     answer = getattr(resp, "content", None) or str(resp)
+#     sources = docs
+#     return {"answer": answer, "sources": sources}
+
 @app.post("/rag", response_model=schemas.RAGResponse)
 def rag_query(req: schemas.RAGRequest):
     llm, emb = get_llm_and_emb()
     col = get_collection()
 
+    #
+    # STEP 1 → Retrieve documents from Chroma (same as before)
+    #
     q_emb = emb.embed_query(req.query)
-    # ask chroma for docs + distances
-    res = col.query(query_embeddings=[q_emb], n_results=req.k, include=["documents","distances","metadatas"])
-    # normalize shapes: most servers return nested lists
+    res = col.query(
+        query_embeddings=[q_emb],
+        n_results=req.k,
+        include=["documents", "distances", "metadatas"]
+    )
+
     docs = res.get("documents", [[]])[0]
     dists = res.get("distances", [[]])[0] if "distances" in res else None
 
     if not docs:
         raise HTTPException(status_code=404, detail="No documents found in vector DB. Run ingestion.")
 
-    # assemble prompt
     context = "\n\n---\n\n".join(docs)
+
+    #
+    # STEP 2 → Decide whether this question requires SQL
+    #
+    classifier_prompt = f"""
+    Given the user's question and documentation below, decide whether answering requires
+    executing an SQL query on the actual database.
+
+    If the question asks about:
+    - values inside the tables (like prices, totals, counts)
+    - the highest/lowest something
+    - rows, counts, aggregations  
+    → return EXACTLY: sql
+
+    If the question is purely about the schema or documentation
+    → return EXACTLY: rag
+
+    User question: "{req.query}"
+
+    Documentation:
+    {context}
+
+    Answer with ONLY one word: sql or rag
+    """.strip()
+
+    mode = llm.invoke(classifier_prompt).content.strip().lower()
+
+    #
+    # STEP 3 → SQL mode
+    #
+    if mode == "sql":
+        sql_prompt = f"""
+    You are an expert SQL generator.
+
+    Based ONLY on the schema information in the documentation below,
+    write SQL that correctly answers the user's question.
+
+    Return ONLY the SQL. No explanation.
+
+    Documentation:
+    {context}
+
+    User question: "{req.query}"
+        """.strip()
+
+        sql_text = llm.invoke(sql_prompt).content.strip()
+
+        # Run SQL on SQLite
+        try:
+            rows = dbmod.run_query(sql_text)
+            return {
+                "answer": rows,
+                "sources": [sql_text]  # the SQL itself is the “source”
+            }
+        except Exception as e:
+            return {
+                "answer": f"SQL error: {str(e)}",
+                "sources": [sql_text]
+            }
+
+    #
+    # STEP 4 → Standard RAG mode (your original behavior)
+    #
     prompt = f"""You are an assistant that answers questions about the SQL schema.
-Use ONLY the documentation below. If answer not present, say "I don't know".
+    Use ONLY the documentation below. If answer not present, say "I don't know".
 
-Documentation:
-{context}
+    Documentation:
+    {context}
 
-Question: {req.query}
+    Question: {req.query}
 
-Answer:"""
+    Answer:"""
+
     resp = llm.invoke(prompt)
     answer = getattr(resp, "content", None) or str(resp)
-    sources = docs
-    return {"answer": answer, "sources": sources}
+
+    return {
+        "answer": answer,
+        "sources": docs
+    }
+
 
 @app.post("/ingest")
 def ingest_endpoint():

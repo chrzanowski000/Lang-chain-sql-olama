@@ -14,7 +14,7 @@ class RAGRequest(BaseModel):
     k: Optional[int] = 4
 
 class RAGResponse(BaseModel):
-    answer: str
+    answer: Any
     sources: List[str]
 
 ### Adding elements to data

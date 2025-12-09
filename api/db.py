@@ -24,8 +24,28 @@ def run_select(sql: str, params: List[Any] = None):
     return rows
 
 def run_exec(sql: str, params: List[Any] = None):
+    #only for INSERT / UPDATE / DELETE
     params = params or []
     with get_conn() as conn:
         cur = conn.execute(sql, params)
         conn.commit()
         return {"rows_affected": cur.rowcount}
+    
+def run_query(sql: str, params: List[Any] = None):
+    """
+    Runs a SELECT or any SQL and returns rows (for SELECT)
+    or rows_affected (for INSERT/UPDATE/DELETE).
+    """
+    params = params or []
+    with get_conn() as conn:
+        cur = conn.execute(sql, params)
+        conn.commit()
+
+        # If it's a SELECT, fetch results
+        if sql.strip().lower().startswith("select"):
+            rows = [dict(r) for r in cur.fetchall()]
+            return rows
+        
+        # Otherwise return affected rows
+        return {"rows_affected": cur.rowcount}
+
