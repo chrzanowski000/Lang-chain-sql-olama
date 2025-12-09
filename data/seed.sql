@@ -1,4 +1,4 @@
--- data/seed.sql
+
 INSERT INTO customers (id, name, country) VALUES
 (1, 'Alice', 'Poland'),
 (2, 'Bob', 'Germany'),
