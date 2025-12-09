@@ -20,7 +20,7 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3:8b")
 
 app = FastAPI(title="SQL + RAG demo")
 
-# Initialize LLM/emb client lazily (so server starts fast)
+# Initialize LLM/emb client
 _llm = None
 _emb = None
 _col = None
@@ -102,9 +102,9 @@ def rag_query(req: schemas.RAGRequest):
     llm, emb = get_llm_and_emb()
     col = get_collection()
 
-    #
-    # STEP 1 → Retrieve documents from Chroma (same as before)
-    #
+    # ---------------------------
+    # 1) Retrieve documents (RAG)
+    # ---------------------------
     q_emb = emb.embed_query(req.query)
     res = col.query(
         query_embeddings=[q_emb],
@@ -113,28 +113,21 @@ def rag_query(req: schemas.RAGRequest):
     )
 
     docs = res.get("documents", [[]])[0]
-    dists = res.get("distances", [[]])[0] if "distances" in res else None
-
     if not docs:
-        raise HTTPException(status_code=404, detail="No documents found in vector DB. Run ingestion.")
+        raise HTTPException(status_code=404, detail="No documents in vector DB. Run ingestion.")
 
     context = "\n\n---\n\n".join(docs)
 
-    #
-    # STEP 2 → Decide whether this question requires SQL
-    #
+    # -------------------------------------------------------
+    # 2) Decide whether question requires SQL or pure RAG
+    # -------------------------------------------------------
     classifier_prompt = f"""
-    Given the user's question and documentation below, decide whether answering requires
-    executing an SQL query on the actual database.
+    Decide if the user question requires executing an SQL query
+    on the actual database values.
 
-    If the question asks about:
-    - values inside the tables (like prices, totals, counts)
-    - the highest/lowest something
-    - rows, counts, aggregations  
-    → return EXACTLY: sql
-
-    If the question is purely about the schema or documentation
-    → return EXACTLY: rag
+    Return ONLY:
+    - "sql" → if question needs database data (prices, totals, counts, max/min...)
+    - "rag" → if question can be answered from documentation only.
 
     User question: "{req.query}"
 
@@ -142,47 +135,80 @@ def rag_query(req: schemas.RAGRequest):
     {context}
 
     Answer with ONLY one word: sql or rag
-    """.strip()
+        """.strip()
 
     mode = llm.invoke(classifier_prompt).content.strip().lower()
 
-    #
-    # STEP 3 → SQL mode
-    #
+    # -------------------------------------------------------
+    # 3) SQL MODE (dynamic SQL generation + execution)
+    # -------------------------------------------------------
     if mode == "sql":
+
         sql_prompt = f"""
-    You are an expert SQL generator.
+        You are an expert SQL generator.
 
-    Based ONLY on the schema information in the documentation below,
-    write SQL that correctly answers the user's question.
+        Write a SINGLE SQL SELECT query that answers the question:
+        "{req.query}"
 
-    Return ONLY the SQL. No explanation.
+        REQUIREMENTS:
+        - Must be a SELECT statement ONLY.
+        - Must return useful column names (e.g., "price" instead of MAX(p.price)).
+        - If the question asks for "most", "highest", "largest", use ORDER BY ... DESC LIMIT 1.
+        - NO markdown, NO explanation, ONLY pure SQL.
 
-    Documentation:
-    {context}
-
-    User question: "{req.query}"
-        """.strip()
+        Schema documentation:
+        {context}
+                """.strip()
 
         sql_text = llm.invoke(sql_prompt).content.strip()
 
-        # Run SQL on SQLite
+        # Remove fenced code blocks, if any
+        if sql_text.startswith("```"):
+            sql_text = "\n".join(sql_text.splitlines()[1:-1]).strip()
+
+        sql_text = sql_text.strip()
+
+        # Basic safety: only allow SELECT
+        if not sql_text.lower().startswith("select"):
+            return {
+                "answer": f"Rejected unsafe SQL (not SELECT): {sql_text}",
+                "sources": [sql_text]
+            }
+
+        # Try executing SQL
         try:
             rows = dbmod.run_query(sql_text)
-            return {
-                "answer": rows,
-                "sources": [sql_text]  # the SQL itself is the “source”
-            }
+
+            # If SELECT returned rows, normalize weird column names
+            if isinstance(rows, list) and rows:
+                row = rows[0]
+
+                # Normalize column named like "MAX(price)" → "price"
+                new_row = {}
+                for k, v in row.items():
+                    clean_key = k.lower()
+                    if "(" in clean_key and ")" in clean_key:
+                        clean_key = clean_key.replace("max(", "").replace("avg(", "").replace("min(", "").replace("sum(", "").replace(")", "")
+                    new_row[clean_key] = v
+
+                return {
+                    "answer": new_row,
+                    "sources": [sql_text]
+                }
+
+            return {"answer": rows, "sources": [sql_text]}
+
         except Exception as e:
             return {
                 "answer": f"SQL error: {str(e)}",
                 "sources": [sql_text]
             }
 
-    #
-    # STEP 4 → Standard RAG mode (your original behavior)
-    #
-    prompt = f"""You are an assistant that answers questions about the SQL schema.
+    # -------------------------------------------------------
+    # 4) RAG MODE
+    # -------------------------------------------------------
+    prompt = f"""
+    You are an assistant that answers questions about the SQL schema.
     Use ONLY the documentation below. If answer not present, say "I don't know".
 
     Documentation:
