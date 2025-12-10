@@ -17,7 +17,9 @@ Folders & key files
 - `.env` — runtime config (CHROMA_HOST, CHROMA_PORT, CHROMA_TENANT, CHROMA_DATABASE, OLLAMA_MODEL, SQLITE_PATH).
 
 Prerequisites (local dev)
-1. Ollama installed and `ollama serve` running locally (model `llama3:8b` pulled).
-2. Chroma CLI installed and run as server:
+1. Ollama installed and running locally (model `llama3:8b`).
+   ```bash
+   ollama serve
+3. Chroma CLI installed and run as server:
    ```bash
    chroma run --path chroma_db
