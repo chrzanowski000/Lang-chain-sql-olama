@@ -1,4 +1,3 @@
-
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -6,18 +5,22 @@ load_dotenv()
 from chromadb import HttpClient
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 
-CHROMA_HOST = "localhost"
-CHROMA_PORT = 8000
+# Load from environment (with safe defaults)
+CHROMA_HOST = os.getenv("CHROMA_HOST", "localhost")
+CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8000"))
+CHROMA_TENANT = os.getenv("CHROMA_TENANT", "default_tenant")
+CHROMA_DB = os.getenv("CHROMA_DATABASE", "default_db")
+
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3:8b")
 
 
 def get_collection():
     client = HttpClient(
-        host="localhost",
-        port=8000,
-        tenant="default_tenant",
-        database="default_db"
+        host=CHROMA_HOST,
+        port=CHROMA_PORT,
+        tenant=CHROMA_TENANT,
+        database=CHROMA_DB
     )
-
     return client.get_collection("docs")
 
 
@@ -37,8 +40,8 @@ def retrieve_docs(col, emb_model, query, k=4):
 
 
 def interactive():
-    llm = ChatOllama(model="llama3:8b", temperature=0.0)
-    emb = OllamaEmbeddings(model="llama3:8b")
+    llm = ChatOllama(model=OLLAMA_MODEL, temperature=0.0)
+    emb = OllamaEmbeddings(model=OLLAMA_MODEL)
 
     col = get_collection()
 

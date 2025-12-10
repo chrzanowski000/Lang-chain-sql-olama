@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException
 from dotenv import load_dotenv
 from typing import List
 
-load_dotenv()
+load_dotenv() #here .env is loaded
 from api import db as dbmod
 from api import schemas
 
@@ -20,7 +20,7 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3:8b")
 
 app = FastAPI(title="SQL + RAG demo")
 
-# Initialize LLM/emb client lazily (so server starts fast)
+# Initialize LLM/emb client
 _llm = None
 _emb = None
 _col = None
@@ -66,36 +66,170 @@ def run_sql(req: schemas.SQLRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+# @app.post("/rag", response_model=schemas.RAGResponse)
+# def rag_query(req: schemas.RAGRequest):
+#     llm, emb = get_llm_and_emb()
+#     col = get_collection()
+
+#     q_emb = emb.embed_query(req.query)
+#     # ask chroma for docs + distances
+#     res = col.query(query_embeddings=[q_emb], n_results=req.k, include=["documents","distances","metadatas"])
+#     # normalize shapes: most servers return nested lists
+#     docs = res.get("documents", [[]])[0]
+#     dists = res.get("distances", [[]])[0] if "distances" in res else None
+
+#     if not docs:
+#         raise HTTPException(status_code=404, detail="No documents found in vector DB. Run ingestion.")
+
+#     # assemble prompt
+#     context = "\n\n---\n\n".join(docs)
+#     prompt = f"""You are an assistant that answers questions about the SQL schema.
+# Use ONLY the documentation below. If answer not present, say "I don't know".
+
+# Documentation:
+# {context}
+
+# Question: {req.query}
+
+# Answer:"""
+#     resp = llm.invoke(prompt)
+#     answer = getattr(resp, "content", None) or str(resp)
+#     sources = docs
+#     return {"answer": answer, "sources": sources}
+
 @app.post("/rag", response_model=schemas.RAGResponse)
 def rag_query(req: schemas.RAGRequest):
     llm, emb = get_llm_and_emb()
     col = get_collection()
 
+    # ---------------------------
+    # 1) Retrieve documents (RAG)
+    # ---------------------------
     q_emb = emb.embed_query(req.query)
-    # ask chroma for docs + distances
-    res = col.query(query_embeddings=[q_emb], n_results=req.k, include=["documents","distances","metadatas"])
-    # normalize shapes: most servers return nested lists
+    res = col.query(
+        query_embeddings=[q_emb],
+        n_results=req.k,
+        include=["documents", "distances", "metadatas"]
+    )
+
     docs = res.get("documents", [[]])[0]
-    dists = res.get("distances", [[]])[0] if "distances" in res else None
-
     if not docs:
-        raise HTTPException(status_code=404, detail="No documents found in vector DB. Run ingestion.")
+        raise HTTPException(status_code=404, detail="No documents in vector DB. Run ingestion.")
 
-    # assemble prompt
     context = "\n\n---\n\n".join(docs)
-    prompt = f"""You are an assistant that answers questions about the SQL schema.
-Use ONLY the documentation below. If answer not present, say "I don't know".
 
-Documentation:
-{context}
+    # -------------------------------------------------------
+    # 2) Decide whether question requires SQL or pure RAG
+    # -------------------------------------------------------
+    classifier_prompt = f"""
+    Decide if the user question requires executing an SQL query
+    on the actual database values.
 
-Question: {req.query}
+    Return ONLY:
+    - "sql" → if question needs database data (prices, totals, counts, max/min...)
+    - "rag" → if question can be answered from documentation only.
 
-Answer:"""
+    User question: "{req.query}"
+
+    Documentation:
+    {context}
+
+    Answer with ONLY one word: sql or rag
+        """.strip()
+
+    mode = llm.invoke(classifier_prompt).content.strip().lower()
+
+    # -------------------------------------------------------
+    # 3) SQL MODE (dynamic SQL generation + execution)
+    # -------------------------------------------------------
+    if mode == "sql":
+
+        sql_prompt = f"""
+        You are an expert SQL generator.
+
+        Write a SINGLE SQL SELECT query that answers the question:
+        "{req.query}"
+
+        REQUIREMENTS:
+        - Must be a SELECT statement ONLY.
+        - Must return useful column names (e.g., "price" instead of MAX(p.price)).
+        - If the question asks for "most", "highest", "largest", use ORDER BY ... DESC LIMIT 1.
+        - NO markdown, NO explanation, ONLY pure SQL.
+
+        Schema documentation:
+        {context}
+                """.strip()
+
+        sql_text = llm.invoke(sql_prompt).content.strip()
+
+        # Remove fenced code blocks, if any
+        if sql_text.startswith("```"):
+            sql_text = "\n".join(sql_text.splitlines()[1:-1]).strip()
+
+        sql_text = sql_text.strip()
+
+        # Basic safety: only allow SELECT
+        if not sql_text.lower().startswith("select"):
+            return {
+                "answer": f"Rejected unsafe SQL (not SELECT): {sql_text}",
+                "sources": [sql_text]
+            }
+
+        # Try executing SQL
+        try:
+            rows = dbmod.run_query(sql_text)
+
+            # rows is a list of dicts (SELECT results)
+            if isinstance(rows, list):
+
+                # 1) If more than 1 row → return the whole thing (correct for list queries)
+                if len(rows) > 1:
+                    return {"answer": rows, "sources": [sql_text]}
+
+                # 2) If exactly 1 row → apply normalization (for aggregations)
+                if len(rows) == 1:
+                    row = rows[0]
+                    normalized = {}
+
+                    for k, v in row.items():
+                        clean = k.lower()
+                        if "(" in clean and ")" in clean:
+                            clean = clean.replace("max(", "").replace("avg(", "").replace("min(", "").replace("sum(", "").replace(")", "")
+                        normalized[clean] = v
+
+                    return {"answer": normalized, "sources": [sql_text]}
+
+                # 3) No rows
+                return {"answer": [], "sources": [sql_text]}
+
+        except Exception as e:
+            return {
+                "answer": f"SQL error: {str(e)}",
+                "sources": [sql_text]
+            }
+
+    # -------------------------------------------------------
+    # 4) RAG MODE
+    # -------------------------------------------------------
+    prompt = f"""
+    You are an assistant that answers questions about the SQL schema.
+    Use ONLY the documentation below. If answer not present, say "I don't know".
+
+    Documentation:
+    {context}
+
+    Question: {req.query}
+
+    Answer:"""
+
     resp = llm.invoke(prompt)
     answer = getattr(resp, "content", None) or str(resp)
-    sources = docs
-    return {"answer": answer, "sources": sources}
+
+    return {
+        "answer": answer,
+        "sources": docs
+    }
+
 
 @app.post("/ingest")
 def ingest_endpoint():
@@ -106,3 +240,73 @@ def ingest_endpoint():
         return {"status":"ingested"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+### Adding elements to data
+@app.post("/create_customer")
+def create_customer(cust: schemas.CustomerCreate):
+    sql = """
+    INSERT INTO customers (name, email, country)
+    VALUES (?, ?, ?)
+    """
+    params = [cust.name, cust.email, cust.country]
+    try:
+        result = dbmod.run_exec(sql, params)
+        return {
+            "status": "success",
+            "inserted": cust,
+            "rows_affected": result["rows_affected"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@app.post("/create_product")
+def create_product(prod: schemas.ProductCreate):
+    sql = """
+    INSERT INTO products (name, price)
+    VALUES (?, ?)
+    """
+    params = [prod.name, prod.price]
+    try:
+        result = dbmod.run_exec(sql, params)
+        return {
+            "status": "success",
+            "inserted": prod,
+            "rows_affected": result["rows_affected"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/create_order")
+def create_order(order: schemas.OrderCreate):
+    sql = """
+    INSERT INTO orders (customer_id, order_date)
+    VALUES (?, ?)
+    """
+    params = [order.customer_id, order.order_date]
+    try:
+        result = dbmod.run_exec(sql, params)
+        return {
+            "status": "success",
+            "inserted": order,
+            "rows_affected": result["rows_affected"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@app.post("/create_order_item")
+def create_order_item(item: schemas.OrderItemCreate):
+    sql = """
+    INSERT INTO order_items (order_id, product_id, quantity, unit_price)
+    VALUES (?, ?, ?, ?)
+    """
+    params = [item.order_id, item.product_id, item.quantity, item.unit_price]
+    try:
+        result = dbmod.run_exec(sql, params)
+        return {
+            "status": "success",
+            "inserted": item,
+            "rows_affected": result["rows_affected"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

@@ -18,6 +18,9 @@ uvicorn api.main:app --reload --host 0.0.0.0 --port 8080
 
 curl -s http://localhost:8080/health | jq .
 curl -s -X POST http://localhost:8080/ingest | jq .
+
+
+curl -s -X POST http://localhost:8080/ingest | jq .
 curl -s -X POST http://localhost:8080/rag -H "Content-Type: application/json" \
   -d '{"query":"What does the order_items table store?","k":4}' | jq .
 curl -s -X POST http://localhost:8080/sql -H "Content-Type: application/json" \
