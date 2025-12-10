@@ -25,3 +25,27 @@ curl -s -X POST http://localhost:8080/rag -H "Content-Type: application/json" \
   -d '{"query":"What does the order_items table store?","k":4}' | jq .
 curl -s -X POST http://localhost:8080/sql -H "Content-Type: application/json" \
   -d '{"sql":"SELECT o.id, c.name, SUM(oi.quantity*oi.unit_price) AS total FROM orders o JOIN customers c ON c.id=o.customer_id JOIN order_items oi ON oi.order_id=o.id GROUP BY o.id;"}' | jq .
+
+
+curl -s -X POST http://localhost:8080/rag -H "Content-Type: application/json" \
+  -d '{"query":"What pdoructs shop have?","k":4}' | jq .
+
+curl -s -X POST http://localhost:8080/rag -H "Content-Type: application/json" \
+  -d '{"query":"What is the most expensive product in the shop?","k":4}' | jq .
+
+Adding elements to data
+curl -s -X POST http://localhost:8080/create_customer \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Alice", "country": "USA"}'
+
+curl -s -X POST http://localhost:8080/create_product \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Gaming Mouse","category":"Electronics","price":60}'
+
+curl -s -X POST http://localhost:8080/create_order \
+  -H "Content-Type: application/json" \
+  -d '{"customer_id":1,"order_date":"2024-01-01"}'
+
+curl -s -X POST http://localhost:8080/create_order_item \
+  -H "Content-Type: application/json" \
+  -d '{"order_id":1,"product_id":3,"quantity":2,"unit_price":60}'
