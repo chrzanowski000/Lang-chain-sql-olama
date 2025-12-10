@@ -27,6 +27,12 @@ curl -s -X POST http://localhost:8080/sql -H "Content-Type: application/json" \
   -d '{"sql":"SELECT o.id, c.name, SUM(oi.quantity*oi.unit_price) AS total FROM orders o JOIN customers c ON c.id=o.customer_id JOIN order_items oi ON oi.order_id=o.id GROUP BY o.id;"}' | jq .
 
 
+curl -s -X POST http://localhost:8080/rag -H "Content-Type: application/json" \
+  -d '{"query":"What pdoructs shop have?","k":4}' | jq .
+
+curl -s -X POST http://localhost:8080/rag -H "Content-Type: application/json" \
+  -d '{"query":"What is the most expensive product in the shop?","k":4}' | jq .
+
 Adding elements to data
 curl -s -X POST http://localhost:8080/create_customer \
   -H "Content-Type: application/json" \
