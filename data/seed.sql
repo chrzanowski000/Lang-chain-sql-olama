@@ -1,5 +1,8 @@
 
 INSERT INTO customers (id, name, country) VALUES
+(1, 'Alice', 'Poland'),
+(2, 'Bob', 'Germany'),
+(3, 'Charlie', 'Poland'),
 (4, 'Diana', 'France'),
 (5, 'Ethan', 'USA'),
 (6, 'Fiona', 'UK'),
@@ -10,6 +13,9 @@ INSERT INTO customers (id, name, country) VALUES
 
 
 INSERT INTO products (id, name, category, price) VALUES
+(1, 'Mechanical Keyboard', 'Electronics', 120.00),
+(2, 'Gaming Mouse', 'Electronics', 60.00),
+(3, 'Office Chair', 'Furniture', 200.00),
 (4, 'Standing Desk', 'Furniture', 350.00),
 (5, 'USB-C Hub', 'Electronics', 45.00),
 (6, 'Noise-Cancelling Headphones', 'Electronics', 180.00),
@@ -20,6 +26,9 @@ INSERT INTO products (id, name, category, price) VALUES
 
 
 INSERT INTO orders (id, customer_id, order_date) VALUES
+(1, 1, '2025-01-10'),
+(2, 1, '2025-01-12'),
+(3, 2, '2025-01-13'),
 (4, 3, '2025-01-15'),
 (5, 4, '2025-01-16'),
 (6, 5, '2025-01-17'),
@@ -31,6 +40,11 @@ INSERT INTO orders (id, customer_id, order_date) VALUES
 
 
 INSERT INTO order_items (id, order_id, product_id, quantity, unit_price) VALUES
+(1, 1, 1, 1, 120.00),
+(2, 1, 2, 2, 60.00),
+(3, 2, 3, 1, 200.00),
+(4, 3, 2, 1, 60.00),
+
 -- Order 4 (Charlie)
 (5, 4, 6, 1, 180.00),
 (6, 4, 5, 2, 45.00),
