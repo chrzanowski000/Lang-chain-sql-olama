@@ -66,36 +66,7 @@ def run_sql(req: schemas.SQLRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# @app.post("/rag", response_model=schemas.RAGResponse)
-# def rag_query(req: schemas.RAGRequest):
-#     llm, emb = get_llm_and_emb()
-#     col = get_collection()
 
-#     q_emb = emb.embed_query(req.query)
-#     # ask chroma for docs + distances
-#     res = col.query(query_embeddings=[q_emb], n_results=req.k, include=["documents","distances","metadatas"])
-#     # normalize shapes: most servers return nested lists
-#     docs = res.get("documents", [[]])[0]
-#     dists = res.get("distances", [[]])[0] if "distances" in res else None
-
-#     if not docs:
-#         raise HTTPException(status_code=404, detail="No documents found in vector DB. Run ingestion.")
-
-#     # assemble prompt
-#     context = "\n\n---\n\n".join(docs)
-#     prompt = f"""You are an assistant that answers questions about the SQL schema.
-# Use ONLY the documentation below. If answer not present, say "I don't know".
-
-# Documentation:
-# {context}
-
-# Question: {req.query}
-
-# Answer:"""
-#     resp = llm.invoke(prompt)
-#     answer = getattr(resp, "content", None) or str(resp)
-#     sources = docs
-#     return {"answer": answer, "sources": sources}
 
 @app.post("/rag", response_model=schemas.RAGResponse)
 def rag_query(req: schemas.RAGRequest):
