@@ -1,5 +1,5 @@
 
-# SQL + RAG (Ollama + Chroma + FastAPI) — Demo README
+# SQL + RAG (Ollama + Chroma + FastAPI) — Demo
 
 Short: this repo demonstrates a local Retrieval-Augmented-Generation (RAG) pipeline using:
 - Ollama (local Llama 3:8B) for embeddings & generation
