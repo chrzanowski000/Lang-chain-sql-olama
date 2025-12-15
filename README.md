@@ -124,11 +124,11 @@ curl -s -X POST http://localhost:8080/create_order_item \
 ## PySpark
 Return top products by total revenue computed in Spark
 ```
-curl "http://localhost:8080/spark/top_products?limit=5" | jq .
+curl -s http://localhost:8080/spark/top_products?limit=5 | jq .
 ```
 Return top customers by total spend computed with Spark
 ```
-curl "http://localhost:8080/spark/customers_spend?limit=5" | jq .
+curl -s http://localhost:8080/spark/customers_spend?limit=5 | jq .
 ```
 
 Folders & key files
