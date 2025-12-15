@@ -9,3 +9,5 @@ tqdm
 fastapi
 uvicorn[standard]
 python-dotenv
+pyspark
+pandas

@@ -12,6 +12,10 @@ from api import schemas
 from chromadb import HttpClient
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 
+#Pyspark
+from api.spark import get_spark_session
+from pyspark.sql.functions import col, sum as spark_sum, desc
+
 CHROMA_HOST = os.environ.get("CHROMA_HOST", "localhost")
 CHROMA_PORT = int(os.environ.get("CHROMA_PORT", 8000))
 CHROMA_TENANT = os.environ.get("CHROMA_TENANT", "default_tenant")
@@ -66,8 +70,12 @@ def run_sql(req: schemas.SQLRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> experimental
 
+### RAG
 @app.post("/rag", response_model=schemas.RAGResponse)
 def rag_query(req: schemas.RAGRequest):
     llm, emb = get_llm_and_emb()
@@ -97,8 +105,8 @@ def rag_query(req: schemas.RAGRequest):
     on the actual database values.
 
     Return ONLY:
-    - "sql" → if question needs database data (prices, totals, counts, max/min...)
-    - "rag" → if question can be answered from documentation only.
+    - "sql" if question needs database data (prices, totals, counts, max/min...)
+    - "rag" if question can be answered from documentation only.
 
     User question: "{req.query}"
 
@@ -153,11 +161,11 @@ def rag_query(req: schemas.RAGRequest):
             # rows is a list of dicts (SELECT results)
             if isinstance(rows, list):
 
-                # 1) If more than 1 row → return the whole thing (correct for list queries)
+                # 1) If more than 1 row -> return the whole thing
                 if len(rows) > 1:
                     return {"answer": rows, "sources": [sql_text]}
 
-                # 2) If exactly 1 row → apply normalization (for aggregations)
+                # 2) If exactly 1 row -> apply normalization
                 if len(rows) == 1:
                     row = rows[0]
                     normalized = {}
@@ -204,7 +212,7 @@ def rag_query(req: schemas.RAGRequest):
 
 @app.post("/ingest")
 def ingest_endpoint():
-    # call your existing rag.ingest script programmatically
+    #existing rag.ingest script programmatically
     from rag import ingest as rag_ingest
     try:
         rag_ingest.ingest()
@@ -281,3 +289,48 @@ def create_order_item(item: schemas.OrderItemCreate):
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+    
+###
+#PySpark
+###
+@app.get("/spark/top_products")
+def spark_top_products(limit: int = 10):
+    """
+    Return top products by total revenue computed in Spark.
+    """
+    base = os.getenv("DATA_DIR", "./data_csv")
+    spark = get_spark_session()
+
+    # read CSVs
+    oi = spark.read.option("header", True).option("inferSchema", True).csv(os.path.join(base, "order_items.csv"))
+    p  = spark.read.option("header", True).option("inferSchema", True).csv(os.path.join(base, "products.csv"))
+
+    # compute revenue per order_item then group by product
+    oi = oi.withColumn("revenue", col("quantity") * col("unit_price"))
+    agg = oi.groupBy("product_id").agg(spark_sum("revenue").alias("total_revenue"))
+
+    joined = agg.join(p, agg.product_id == p.id).select(p.id.alias("product_id"), p.name, col("total_revenue"))
+    topk = joined.orderBy(desc("total_revenue")).limit(int(limit))
+
+    rows = [r.asDict() for r in topk.collect()]
+    return {"top_products": rows}
+
+@app.get("/spark/customers_spend")
+def spark_customers_spend(limit: int = 10):
+    """
+    Return top customers by total spend computed with Spark.
+    """
+    base = os.getenv("DATA_DIR", "./data_csv")
+    spark = get_spark_session()
+
+    oi = spark.read.option("header", True).option("inferSchema", True).csv(os.path.join(base, "order_items.csv"))
+    o  = spark.read.option("header", True).option("inferSchema", True).csv(os.path.join(base, "orders.csv"))
+    c  = spark.read.option("header", True).option("inferSchema", True).csv(os.path.join(base, "customers.csv"))
+
+    oi = oi.withColumn("revenue", col("quantity") * col("unit_price"))
+    joined = oi.join(o, oi.order_id == o.id).join(c, o.customer_id == c.id)
+    agg = joined.groupBy("customer_id", "name").agg(spark_sum("revenue").alias("total_spend"))
+    top = agg.orderBy(desc("total_spend")).limit(int(limit))
+
+    rows = [r.asDict() for r in top.collect()]
+    return {"top_customers": rows}
