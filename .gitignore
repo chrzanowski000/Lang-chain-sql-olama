@@ -1,5 +1,7 @@
 __pycache__/
 *.pyc
 shop.db
-data/
-chroma_db/
+chroma_db/*
+!chroma_db/.gitkeep
+*.sqlite3
+*.bin
