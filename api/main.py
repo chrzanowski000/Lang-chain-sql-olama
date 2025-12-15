@@ -70,37 +70,8 @@ def run_sql(req: schemas.SQLRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# @app.post("/rag", response_model=schemas.RAGResponse)
-# def rag_query(req: schemas.RAGRequest):
-#     llm, emb = get_llm_and_emb()
-#     col = get_collection()
 
-#     q_emb = emb.embed_query(req.query)
-#     # ask chroma for docs + distances
-#     res = col.query(query_embeddings=[q_emb], n_results=req.k, include=["documents","distances","metadatas"])
-#     # normalize shapes: most servers return nested lists
-#     docs = res.get("documents", [[]])[0]
-#     dists = res.get("distances", [[]])[0] if "distances" in res else None
-
-#     if not docs:
-#         raise HTTPException(status_code=404, detail="No documents found in vector DB. Run ingestion.")
-
-#     # assemble prompt
-#     context = "\n\n---\n\n".join(docs)
-#     prompt = f"""You are an assistant that answers questions about the SQL schema.
-# Use ONLY the documentation below. If answer not present, say "I don't know".
-
-# Documentation:
-# {context}
-
-# Question: {req.query}
-
-# Answer:"""
-#     resp = llm.invoke(prompt)
-#     answer = getattr(resp, "content", None) or str(resp)
-#     sources = docs
-#     return {"answer": answer, "sources": sources}
-
+### RAG
 @app.post("/rag", response_model=schemas.RAGResponse)
 def rag_query(req: schemas.RAGRequest):
     llm, emb = get_llm_and_emb()
@@ -130,8 +101,8 @@ def rag_query(req: schemas.RAGRequest):
     on the actual database values.
 
     Return ONLY:
-    - "sql" → if question needs database data (prices, totals, counts, max/min...)
-    - "rag" → if question can be answered from documentation only.
+    - "sql" if question needs database data (prices, totals, counts, max/min...)
+    - "rag" if question can be answered from documentation only.
 
     User question: "{req.query}"
 
@@ -186,11 +157,11 @@ def rag_query(req: schemas.RAGRequest):
             # rows is a list of dicts (SELECT results)
             if isinstance(rows, list):
 
-                # 1) If more than 1 row → return the whole thing (correct for list queries)
+                # 1) If more than 1 row -> return the whole thing
                 if len(rows) > 1:
                     return {"answer": rows, "sources": [sql_text]}
 
-                # 2) If exactly 1 row → apply normalization (for aggregations)
+                # 2) If exactly 1 row -> apply normalization
                 if len(rows) == 1:
                     row = rows[0]
                     normalized = {}
@@ -237,7 +208,7 @@ def rag_query(req: schemas.RAGRequest):
 
 @app.post("/ingest")
 def ingest_endpoint():
-    # call your existing rag.ingest script programmatically
+    #existing rag.ingest script programmatically
     from rag import ingest as rag_ingest
     try:
         rag_ingest.ingest()
@@ -344,7 +315,6 @@ def spark_top_products(limit: int = 10):
 def spark_customers_spend(limit: int = 10):
     """
     Return top customers by total spend computed with Spark.
-    Uses CSVs in DATA_DIR (exported from SQLite).
     """
     base = os.getenv("DATA_DIR", "./data_csv")
     spark = get_spark_session()
