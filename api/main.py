@@ -322,7 +322,6 @@ def create_order_item(item: schemas.OrderItemCreate):
 def spark_top_products(limit: int = 10):
     """
     Return top products by total revenue computed in Spark.
-    Uses CSVs in DATA_DIR (exported from SQLite).
     """
     base = os.getenv("DATA_DIR", "./data_csv")
     spark = get_spark_session()
