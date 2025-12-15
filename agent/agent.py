@@ -75,44 +75,24 @@ class SafetyGuardrailMiddleware(AgentMiddleware):
 
         return None
 
+def agent(model = OLLAMA_MODEL,banned_keywords: list = ["hack", "exploit"]):
+    _agent = create_agent(
+        model=ChatOllama(model=model, temperature=0.0),
+        middleware=[
+            # Layer 1: Deterministic input filter (before agent)
+            ContentFilterMiddleware(banned_keywords=banned_keywords),
 
+            # Layer 2: PII protection (before and after model)
+            PIIMiddleware("email", strategy="redact", apply_to_input=True, apply_to_output=True),
+            PIIMiddleware("ip", strategy="redact", apply_to_input=True, apply_to_output=True),
 
-# agent = create_agent(
-#     model="gpt-4o",
-#     tools=[search_tool, send_email_tool],
-#     middleware=[
-#         # Layer 1: Deterministic input filter (before agent)
-#         ContentFilterMiddleware(banned_keywords=["hack", "exploit"]),
+            # Layer 3: Model-based safety check (after agent)
+            SafetyGuardrailMiddleware(),
+        ],
+        )
+    return _agent
 
-#         # Layer 2: PII protection (before and after model)
-#         PIIMiddleware("email", strategy="redact", apply_to_input=True),
-#         PIIMiddleware("email", strategy="redact", apply_to_output=True),
-
-#         # Layer 3: Human approval for sensitive tools
-#         HumanInTheLoopMiddleware(interrupt_on={"send_email": True}),
-
-#         # Layer 4: Model-based safety check (after agent)
-#         SafetyGuardrailMiddleware(),
-#     ],
-# )
-
-
-
-
-agent = create_agent(
-    model=ChatOllama(model=OLLAMA_MODEL, temperature=0.0),
-    middleware=[
-        # Layer 1: Deterministic input filter (before agent)
-        ContentFilterMiddleware(banned_keywords=["hack", "exploit"]),
-
-        # Layer 2: PII protection (before and after model)
-        PIIMiddleware("email", strategy="redact", apply_to_input=True, apply_to_output=True),
-        PIIMiddleware("ip", strategy="redact", apply_to_input=True, apply_to_output=True),
-
-        # Layer 3: Model-based safety check (after agent)
-        SafetyGuardrailMiddleware(),
-    ],
-    )
+agent = agent()
 
 # This request will be blocked before any processing
 result = agent.invoke({
@@ -124,3 +104,7 @@ result = agent.invoke({
     "messages": [{"role": "user", "content": "What is 2+2?"}]
 })
 print(result["messages"][-1].content)
+
+
+# ###TODO
+# - move context into system message

@@ -16,6 +16,9 @@ from langchain_ollama import ChatOllama, OllamaEmbeddings
 from api.spark import get_spark_session
 from pyspark.sql.functions import col, sum as spark_sum, desc
 
+#Agent
+from agent.agent import agent
+
 CHROMA_HOST = os.environ.get("CHROMA_HOST", "localhost")
 CHROMA_PORT = int(os.environ.get("CHROMA_PORT", 8000))
 CHROMA_TENANT = os.environ.get("CHROMA_TENANT", "default_tenant")
@@ -29,6 +32,14 @@ _llm = None
 _emb = None
 _col = None
 _client = None
+_agent = None
+
+# Create Agent
+def get_agent():
+    global _agent
+    if _agent is None:
+        _agent = agent(model=OLLAMA_MODEL)
+    return _agent
 
 def get_chroma_client():
     global _client, _col
@@ -46,6 +57,7 @@ def get_collection():
             _col = client.create_collection("docs", metadata={"hnsw:space":"cosine"})
     return _col
 
+# TO BE REMOVED (replaced by get_agent and get_emb)
 def get_llm_and_emb():
     global _llm, _emb
     if _llm is None:
@@ -53,6 +65,12 @@ def get_llm_and_emb():
     if _emb is None:
         _emb = OllamaEmbeddings(model=OLLAMA_MODEL)
     return _llm, _emb
+
+def get_emb():
+    global _emb
+    if _emb is None:
+        _emb = OllamaEmbeddings(model=OLLAMA_MODEL)
+    return _emb
 
 @app.get("/health")
 def health():
