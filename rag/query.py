@@ -69,8 +69,7 @@ def interactive():
 Use ONLY the following documentation to answer the question.
 If the answer is not in the documentation, say "I don't know".
 
-DOCUMENTATION:
-{context}
+DOCUMENTATION: {context}
 
 QUESTION: {q}
 

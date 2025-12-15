@@ -345,6 +345,7 @@ def spark_top_products(limit: int = 10):
 def spark_customers_spend(limit: int = 10):
     """
     Return top customers by total spend computed with Spark.
+    Uses CSVs in DATA_DIR (exported from SQLite).
     """
     base = os.getenv("DATA_DIR", "./data_csv")
     spark = get_spark_session()
