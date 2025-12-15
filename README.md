@@ -72,7 +72,7 @@ python rag/ingest.py
 ```
 ### Start API
 ```
-uvicorn api.main:app --reload --port 8080
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8080
 ```
 
 ## API endpoints examples
@@ -86,7 +86,8 @@ curl -s -X POST http://localhost:8080/ingest | jq .
 ```
 RAG query
 ```
-curl -s -X POST http://localhost:8080/rag -H "Content-Type: application/json"
+curl -s -X POST http://localhost:8080/rag \
+-H "Content-Type: application/json" \
 -d '{"query":"What does the order_items table store?","k":4}' | jq .
 ```
 SQL query
