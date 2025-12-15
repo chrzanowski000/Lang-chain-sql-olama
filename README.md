@@ -1,8 +1,7 @@
 
 # SQL + RAG (Ollama + Chroma + FastAPI + PySpark)
 
-A complete backend project demonstrating SQL CRUD operations, Retrieval-Augmented Generation (RAG), PySpark analytics, and integration with a self-hosted Ollama LLM model.  
-The system is designed to showcase backend engineering, AI architecture, data engineering using PySpark, and DevOps skills (Docker and Kubernetes ready).
+A complete backend project demonstrating Retrieval-Augmented Generation (RAG), SQL operations, PySpark analytics, and integration with a self-hosted Ollama LLM model.  System has integrated FastAPI that can perform hybrid RAG and SQL tasks as well as PySpark predefined analytics.
 
 ---
 
