@@ -35,23 +35,62 @@ The system is designed to showcase backend engineering, AI architecture, data en
 
 ---
 
-# Architecture
+## Installation
+```
+git clone <your-repo>
+cd Lang-chain-sql-ollama
+
+```
+```
+conda create -n sqlrag python=3.10 -y
+conda activate sqlrag
+pip install -r requirements.txt
+```
+### Create `.env`
+```
+SQLITE_PATH=./shop.db
+
+CHROMA_HOST=localhost
+CHROMA_PORT=8000
+CHROMA_TENANT=default_tenant
+CHROMA_DATABASE=default_db
+
+OLLAMA_MODEL=llama3:8b
+```
+### Database Setup
+```
+sqlite3 shop.db < data/schema.sql
+sqlite3 shop.db < data/seed.sql
+```
+### RAG Ingestion
+Start Chroma database
+```
+chroma run --path chroma_db
+```
+Run ingestion
+```
+python rag/ingest.py
+```
+### Start API
+```
+uvicorn api.main:app --reload --port 8080
+```
+
+## API Examples
+
+## PySpark
 
 
 Folders & key files
 - `rag/ingest.py` — reads `docs/*.md`, splits, computes embeddings, upserts into Chroma.
 - `rag/query.py` — interactive CLI RAG client (embed→retrieve→LLM).
 - `api/main.py` — FastAPI app exposing `/ingest`, `/rag`, `/sql`, `/health`.
-- `api/db.py` — tiny sqlite helper.
+- `api/db.py` — sqlite helper.
 - `docs/` — markdown docs that are indexed by ingestion.
 - `data/schema.sql`, `data/seed.sql` — schema and seed for `shop.db`.
 - `.env` — runtime config (CHROMA_HOST, CHROMA_PORT, CHROMA_TENANT, CHROMA_DATABASE, OLLAMA_MODEL, SQLITE_PATH).
 
-Prerequisites (local dev)
-1. Ollama installed and `ollama serve` running locally (model `llama3:8b` pulled).
-2. Chroma CLI installed and run as server:
-   ```bash
-   chroma run --path chroma_db
+
 
 
 
