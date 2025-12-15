@@ -1,11 +1,42 @@
 
-# SQL + RAG (Ollama + Chroma + FastAPI) — Demo README
+# SQL + RAG (Ollama + Chroma + FastAPI + PySpark)
 
-Short: this repo demonstrates a local Retrieval-Augmented-Generation (RAG) pipeline using:
-- Ollama (local Llama 3:8B) for embeddings & generation
-- Chroma server (v1.x) for vector storage and retrieval
-- SQLite for structured data (shop.db)
-- FastAPI for a REST demo endpoint
+A complete backend project demonstrating SQL CRUD operations, Retrieval-Augmented Generation (RAG), PySpark analytics, and integration with a self-hosted Ollama LLM model.  
+The system is designed to showcase backend engineering, AI architecture, data engineering using PySpark, and DevOps skills (Docker and Kubernetes ready).
+
+---
+
+## Features
+
+### Backend (FastAPI)
+- SQLite database (`shop.db`)
+- FAST API endpoints for:
+  - customers
+  - products
+  - orders
+  - order_items
+- Environment-based configuration
+
+### Retrieval-Augmented Generation (RAG)
+- Chroma vector database
+- Embeddings and inference using Ollama (llama3:8b)
+- Optional cloud LLM providers (OpenAI, Groq, Anthropic)
+
+### Analytics (PySpark)
+- CSV export from SQLite tables
+- Spark SQL analytics:
+  - Top products by revenue
+  - Top customers by spending
+
+### DevOps (TODO)
+- Dockerfile included
+- Kubernetes manifests (Deployment, Service, Secrets)
+- Self-hosted Ollama kept outside cluster for simplicity
+
+---
+
+# Architecture
+
 
 Folders & key files
 - `rag/ingest.py` — reads `docs/*.md`, splits, computes embeddings, upserts into Chroma.
@@ -21,3 +52,13 @@ Prerequisites (local dev)
 2. Chroma CLI installed and run as server:
    ```bash
    chroma run --path chroma_db
+
+
+
+
+
+
+
+
+
+   
