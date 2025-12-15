@@ -1,11 +1,11 @@
 
-# SQL + RAG (Ollama + Chroma + FastAPI) — Demo README
+# SQL + RAG (Ollama + Chroma + FastAPI) — Demo
 
-Short: this repo demonstrates a local Retrieval-Augmented-Generation (RAG) pipeline using:
-- Ollama (local Llama 3:8B) for embeddings & generation
-- Chroma server (v1.x) for vector storage and retrieval
+Briefly: this repo demonstrates a local Retrieval-Augmented-Generation (RAG) pipeline using:
+- Ollama (local, self hosted Llama 3:8B) for embeddings & generation
+- Chroma server for vector storage and retrieval
 - SQLite for structured data (shop.db)
-- FastAPI for a REST demo endpoint
+- FastAPI for a REST endpoints
 
 Folders & key files
 - `rag/ingest.py` — reads `docs/*.md`, splits, computes embeddings, upserts into Chroma.
