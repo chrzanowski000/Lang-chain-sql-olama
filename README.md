@@ -1,11 +1,53 @@
 
-# AGENT: SQL + RAG (Ollama + Chroma + FastAPI + PySpark)
+# AGENT: SQL + RAG (Ollama Agent + Chroma + FastAPI + PySpark + Guardrails)
 
 A complete backend project demonstrating Retrieval-Augmented Generation (RAG), SQL operations, PySpark analytics, and integration with a self-hosted Ollama LLM model.  System has integrated FastAPI that can perform hybrid RAG and SQL tasks as well as PySpark predefined analytics.
 
 ---
 
 ## Features
+### LLM Agent with Guardrails
+
+The project uses a **LangGraph-based agent** for RAG.
+The agent wraps the model with **multiple safety and control layers**, enforcing predictable and safe behavior across the API.
+
+### Guardrail Layers
+
+The agent is constructed with the following middleware stack:
+
+1. **Deterministic Content Filter (Pre-Model)**  
+   Blocks requests containing banned keywords before they reach the model.
+
+   - Example: prevents prompts containing `"hack"`, `"exploit"`
+
+2. **PII Protection (Pre & Post Model)**  
+   Automatically redacts sensitive information:
+   - Email addresses
+   - IP addresses
+
+   Redaction is applied to:
+   - User input
+   - Model output
+
+3. **Model-Based Safety Guardrail (Post-Model)**  
+   A secondary LLM check that validates whether the generated response is safe and policy-compliant.
+
+   If the output is unsafe, it is blocked or sanitized before returning to the user.
+   
+## RAG + SQL Hybrid Reasoning
+
+The `/rag` endpoint performs **dynamic routing**:
+
+1. Retrieve relevant documentation from Chroma (RAG)
+2. Classify the question:
+   - `rag` → answer using documentation only
+   - `sql` → generate and execute SQL on the database
+3. Apply guardrails to the final response via the agent
+4. Return structured JSON output
+
+This allows the API to answer both:
+- Schema / documentation questions
+- Data-driven questions (counts, totals, max/min, etc.)
 
 ### Backend (FastAPI)
 - SQLite database (`shop.db`)
@@ -18,7 +60,7 @@ A complete backend project demonstrating Retrieval-Augmented Generation (RAG), S
 
 ### Retrieval-Augmented Generation (RAG)
 - Chroma vector database
-- Embeddings and inference using Ollama (llama3:8b)
+- Embeddings and inference using Ollama Agent (llama3:8b)
 - Optional cloud LLM providers (OpenAI, Groq, Anthropic)
 
 ### Analytics (PySpark)
