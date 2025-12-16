@@ -16,6 +16,9 @@ from langchain_ollama import ChatOllama, OllamaEmbeddings
 from api.spark import get_spark_session
 from pyspark.sql.functions import col, sum as spark_sum, desc
 
+#Agent
+from agent.agent import build_agent
+
 CHROMA_HOST = os.environ.get("CHROMA_HOST", "localhost")
 CHROMA_PORT = int(os.environ.get("CHROMA_PORT", 8000))
 CHROMA_TENANT = os.environ.get("CHROMA_TENANT", "default_tenant")
@@ -29,6 +32,14 @@ _llm = None
 _emb = None
 _col = None
 _client = None
+_agent = None
+
+# Create Agent
+def get_agent():
+    global _agent
+    if _agent is None:
+        _agent = build_agent()
+    return _agent
 
 def get_chroma_client():
     global _client, _col
@@ -53,6 +64,12 @@ def get_llm_and_emb():
     if _emb is None:
         _emb = OllamaEmbeddings(model=OLLAMA_MODEL)
     return _llm, _emb
+
+def get_emb():
+    global _emb
+    if _emb is None:
+        _emb = OllamaEmbeddings(model=OLLAMA_MODEL)
+    return _emb
 
 @app.get("/health")
 def health():
@@ -79,6 +96,8 @@ def run_sql(req: schemas.SQLRequest):
 @app.post("/rag", response_model=schemas.RAGResponse)
 def rag_query(req: schemas.RAGRequest):
     llm, emb = get_llm_and_emb()
+    #emb = get_emb()
+    agent = get_agent()
     col = get_collection()
 
     # ---------------------------
@@ -116,8 +135,8 @@ def rag_query(req: schemas.RAGRequest):
     Answer with ONLY one word: sql or rag
         """.strip()
 
+    #mode = llm.invoke(classifier_prompt).content.strip().lower() # to be removed
     mode = llm.invoke(classifier_prompt).content.strip().lower()
-
     # -------------------------------------------------------
     # 3) SQL MODE (dynamic SQL generation + execution)
     # -------------------------------------------------------
@@ -139,6 +158,7 @@ def rag_query(req: schemas.RAGRequest):
         {context}
                 """.strip()
 
+        #sql_text = llm.invoke(sql_prompt).content.strip() #to be removed
         sql_text = llm.invoke(sql_prompt).content.strip()
 
         # Remove fenced code blocks, if any
@@ -201,8 +221,12 @@ def rag_query(req: schemas.RAGRequest):
 
     Answer:"""
 
-    resp = llm.invoke(prompt)
-    answer = getattr(resp, "content", None) or str(resp)
+    #resp = llm.invoke(prompt) # to be removed
+    resp = agent.invoke({
+    "messages": [
+        {"role": "user", "content": prompt}
+    ]})
+    answer = resp["messages"][-1].content# Agent returns chat-style messages; last message is the final answer
 
     return {
         "answer": answer,
