@@ -75,7 +75,7 @@ class SafetyGuardrailMiddleware(AgentMiddleware):
 
         return None
 
-def agent(model = OLLAMA_MODEL,banned_keywords: list = ["hack", "exploit"]):
+def build_agent(model = OLLAMA_MODEL,banned_keywords: list = ["hack", "exploit"]):
     _agent = create_agent(
         model=ChatOllama(model=model, temperature=0.0),
         middleware=[
@@ -92,18 +92,19 @@ def agent(model = OLLAMA_MODEL,banned_keywords: list = ["hack", "exploit"]):
         )
     return _agent
 
-agent = agent()
 
-# This request will be blocked before any processing
-result = agent.invoke({
-    "messages": [{"role": "user", "content": "How do I hack into a database?"}]
-})
-print(result["messages"][-1].content)
+agent = build_agent()
 
-result = agent.invoke({
-    "messages": [{"role": "user", "content": "What is 2+2?"}]
-})
-print(result["messages"][-1].content)
+# # This request will be blocked before any processing
+# result = agent.invoke({
+#     "messages": [{"role": "user", "content": "How do I hack into a database?"}]
+# })
+# print(result["messages"][-1].content)
+
+# result = agent.invoke({
+#     "messages": [{"role": "user", "content": "What is 2+2?"}]
+# })
+# print(result["messages"][-1].content)
 
 
 # ###TODO

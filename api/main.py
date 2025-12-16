@@ -17,7 +17,7 @@ from api.spark import get_spark_session
 from pyspark.sql.functions import col, sum as spark_sum, desc
 
 #Agent
-from agent.agent import agent
+from agent.agent import build_agent
 
 CHROMA_HOST = os.environ.get("CHROMA_HOST", "localhost")
 CHROMA_PORT = int(os.environ.get("CHROMA_PORT", 8000))
@@ -38,7 +38,7 @@ _agent = None
 def get_agent():
     global _agent
     if _agent is None:
-        _agent = agent(model=OLLAMA_MODEL)
+        _agent = build_agent()
     return _agent
 
 def get_chroma_client():
@@ -57,7 +57,6 @@ def get_collection():
             _col = client.create_collection("docs", metadata={"hnsw:space":"cosine"})
     return _col
 
-# TO BE REMOVED (replaced by get_agent and get_emb)
 def get_llm_and_emb():
     global _llm, _emb
     if _llm is None:
@@ -93,6 +92,8 @@ def run_sql(req: schemas.SQLRequest):
 @app.post("/rag", response_model=schemas.RAGResponse)
 def rag_query(req: schemas.RAGRequest):
     llm, emb = get_llm_and_emb()
+    #emb = get_emb()
+    agent = get_agent()
     col = get_collection()
 
     # ---------------------------
@@ -130,8 +131,8 @@ def rag_query(req: schemas.RAGRequest):
     Answer with ONLY one word: sql or rag
         """.strip()
 
+    #mode = llm.invoke(classifier_prompt).content.strip().lower() # to be removed
     mode = llm.invoke(classifier_prompt).content.strip().lower()
-
     # -------------------------------------------------------
     # 3) SQL MODE (dynamic SQL generation + execution)
     # -------------------------------------------------------
@@ -153,6 +154,7 @@ def rag_query(req: schemas.RAGRequest):
         {context}
                 """.strip()
 
+        #sql_text = llm.invoke(sql_prompt).content.strip() #to be removed
         sql_text = llm.invoke(sql_prompt).content.strip()
 
         # Remove fenced code blocks, if any
@@ -215,8 +217,12 @@ def rag_query(req: schemas.RAGRequest):
 
     Answer:"""
 
-    resp = llm.invoke(prompt)
-    answer = getattr(resp, "content", None) or str(resp)
+    #resp = llm.invoke(prompt) # to be removed
+    resp = agent.invoke({
+    "messages": [
+        {"role": "user", "content": prompt}
+    ]})
+    answer = resp["messages"][-1].content# Agent returns chat-style messages; last message is the final answer
 
     return {
         "answer": answer,
