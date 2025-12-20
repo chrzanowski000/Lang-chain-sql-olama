@@ -22,7 +22,7 @@ from agent.agent import build_agent
 CHROMA_HOST = os.environ.get("CHROMA_HOST", "localhost")
 CHROMA_PORT = int(os.environ.get("CHROMA_PORT", 8000))
 CHROMA_TENANT = os.environ.get("CHROMA_TENANT", "default_tenant")
-CHROMA_DB = os.environ.get("CHROMA_DATABASE", "default_db")
+CHROMA_DB = os.environ.get("CHROMA_DATABASE", "default_database")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3:8b")
 
 app = FastAPI(title="SQL + RAG demo")
@@ -87,10 +87,6 @@ def run_sql(req: schemas.SQLRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-<<<<<<< HEAD
-
-=======
->>>>>>> experimental
 
 ### RAG
 @app.post("/rag", response_model=schemas.RAGResponse)

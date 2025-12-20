@@ -11,6 +11,12 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 BASE = os.path.dirname(os.path.dirname(__file__))
 DOCS_PATH = os.path.join(BASE, "docs")
 
+CHROMA_HOST = os.environ.get("CHROMA_HOST", "localhost")
+CHROMA_PORT = int(os.environ.get("CHROMA_PORT", 8000))
+CHROMA_TENANT = os.environ.get("CHROMA_TENANT", "default_tenant")
+CHROMA_DB = os.environ.get("CHROMA_DATABASE", "default_database")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3:8b")
+
 
 def ingest():
     print("Loading docs...")
@@ -26,10 +32,10 @@ def ingest():
 
     print("Connecting to Chroma server at localhost:8000 ...")
     client = HttpClient(
-        host="localhost",
-        port=8000,
-        tenant="default_tenant",
-        database="default_db"
+        host=CHROMA_HOST,
+        port=CHROMA_PORT,
+        tenant=CHROMA_TENANT,
+        database=CHROMA_DB
     )
 
     try:
