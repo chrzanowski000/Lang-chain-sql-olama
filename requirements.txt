@@ -11,3 +11,5 @@ uvicorn[standard]
 python-dotenv
 pyspark
 pandas
+node
+npm
